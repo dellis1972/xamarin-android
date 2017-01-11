@@ -18,7 +18,8 @@
   <PropertyGroup>
     <BuildDependsOnLocal Condition="'$(HostOS)' == 'Windows' OR '$(HostOS)' == 'Darwin'">
       ResolveReferences;
-      _BuildUnlessCached
+      _BuildUnlessCached;
+      _BuildZLib
     </BuildDependsOnLocal>
   </PropertyGroup>
   <Import Project="libzip-windows.props" />
@@ -33,4 +34,9 @@
   </ItemGroup>
   <Target Name="Build" DependsOnTargets="$(BuildDependsOnLocal)" />
   <Target Name="Clean" />
+  <Target Name="_BuildZLib">
+    <Exec
+      Command="$(AndroidMxeFullPath)\bin\x86_64-w64-mingw32.static-gcc -shared -o $(OutputPath)lib\xbuild\Xamarin\Android\zlib1.dll $(AndroidMxeFullPath)\x86_64-w64-mingw32.static\lib\libz.a"
+    />
+  </Target>
 </Project>
