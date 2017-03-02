@@ -3,6 +3,7 @@ using Xamarin.ProjectTools;
 using NUnit.Framework;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Xamarin.Android.Build.Tests
 {
@@ -362,6 +363,104 @@ namespace Foo {
 			using (var bindingBuilder = CreateDllBuilder (Path.Combine ("temp", "RemoveEventHandlerResolution", "Binding"))) {
 				Assert.IsTrue (bindingBuilder.Build (binding), "binding build should have succeeded");
 			}
+		}
+
+		[Test]
+		[TestCaseSource ("ClassParseOptions")]
+		public void AarBindigLibraryRepeatBuild (string classParser)
+		{
+			var javaProj = new XamarinAndroidApplicationProject () {
+				IsRelease = true,
+			};
+			var helloJava = new BuildItem (AndroidBuildActions.AndroidJavaSource, "HelloAar.java") {
+				TextContent = () => @"
+package com.xamarin.hello;
+public class HelloAar {
+	public String getString() {
+		String var = ""HelloService"";
+		System.out.println(var);
+		return var;
+	}
+}",
+				Encoding = Encoding.ASCII
+			};
+			javaProj.OtherBuildItems.Add (helloJava);
+
+			javaProj.Imports.Add (new Import ("Xamarin.Android.Java.targets") { TextContent = () => @"
+<Project xmlns=""http://schemas.microsoft.com/developer/msbuild/2003"">
+<Target Name=""CreateClassesJar"" AfterTargets=""SignAndroidPackage"">
+	<Exec Command=""jar cvf $(MSBuildThisFileDirectory)../HelloAAr/classes.jar *.class"" WorkingDirectory=""$(IntermediateOutputPath)/android/bin/classes/com/xamarin/hello/"" />
+</Target>
+</Project>
+" });
+			var builder = CreateApkBuilder ("temp/AarBindigLibraryRepeatBuild/MyLibrary");
+			builder.Build (javaProj);
+			Directory.CreateDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar", "aidl"));
+			Directory.CreateDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar", "assets"));
+			Directory.CreateDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar", "res"));
+			Directory.CreateDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar", "com", "xamarin", "hello"));
+			File.WriteAllText (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar", "AndroidManifest.xml"), @"
+<?xml version=""1.0"" encoding=""utf-8""?>
+<manifest xmlns:android=""http://schemas.android.com/apk/res/android""
+    package=""com.xamarin.hello""
+    android:versionCode=""2""
+    android:versionName=""1.0.0"" >
+
+    <uses-sdk
+        android:minSdkVersion=""14""
+        android:targetSdkVersion=""19"" />
+
+    <application android:allowBackup=""true"" />
+
+</manifest>
+");
+			if (File.Exists (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar")))
+				File.Delete (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar"));
+			using (var zip = ZipHelper.CreateZip (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar"))) {
+				var dir = Directory.GetCurrentDirectory ();
+				Directory.SetCurrentDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar"));
+				zip.AddFiles (Directory.GetFiles (".", "*.*", SearchOption.AllDirectories));
+				Directory.SetCurrentDirectory (dir);
+			}
+
+ 			var proj = new XamarinAndroidBindingProject () {
+				UseLatestPlatformSdk = true,
+				IsRelease = true
+			};
+			proj.Jars.Add (new AndroidItem.LibraryProjectZip ("Jars\\HelloAar.aar") {
+				BinaryContent = () => File.ReadAllBytes (Path.Combine (Root, "temp","AarBindigLibraryRepeatBuild","HelloAar.aar")),
+			});
+			proj.AndroidClassParser = classParser;
+			using (var b = CreateDllBuilder ("temp/AarBindigLibraryRepeatBuild/Library", false, false)) {
+
+				Assert.IsTrue (b.Build (proj), "Build should have succeeded.");
+				Assert.IsTrue (b.Build (proj), "Build should have succeeded.");
+				Assert.IsTrue (proj.CreateBuildOutput (b).IsTargetSkipped ("GenerateBindings"), "GenerateBindings Task should not have run");
+
+				helloJava.TextContent = () => @"
+package com.xamarin.hello;
+public class HelloAar {
+	public String getString() {
+		String var = ""HelloMe"";
+		System.out.println(var);
+		return var;
+	}
+}";
+				builder.Build (javaProj);
+
+				if (File.Exists (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar")))
+					File.Delete (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar"));
+				using (var zip = ZipHelper.CreateZip (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar.aar"))) {
+					var dir = Directory.GetCurrentDirectory ();
+					Directory.SetCurrentDirectory (Path.Combine (Root, builder.ProjectDirectory, "..", "HelloAar"));
+					zip.AddFiles (Directory.GetFiles (".", "*.*", SearchOption.AllDirectories));
+					Directory.SetCurrentDirectory (dir);
+				}
+				proj.Touch ("Jars\\HelloAar.aar");
+				Assert.IsTrue (b.Build (proj), "Build should have succeeded.");
+				Assert.IsFalse (proj.CreateBuildOutput (b).IsTargetSkipped ("GenerateBindings"), "GenerateBindings Task should have run");
+			}
+
 		}
 	}
 }

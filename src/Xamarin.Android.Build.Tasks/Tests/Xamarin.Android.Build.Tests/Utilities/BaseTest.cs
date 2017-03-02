@@ -100,7 +100,7 @@ namespace Xamarin.Android.Build.Tests
 		protected virtual void CleanupTest ()
 		{
 			if (TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Passed) {
-				if (TestContext.CurrentContext.Test.Properties ["Output"] == null)
+				//if (TestContext.CurrentContext.Test.Properties ["Output"] == null)
 					return;
 				// find the "root" directory just below "temp" and clean from there because
 				// some tests create multiple subdirectories

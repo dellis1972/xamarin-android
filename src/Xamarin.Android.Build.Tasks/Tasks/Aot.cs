@@ -259,14 +259,19 @@ namespace Xamarin.Android.Tasks
 
 				ThreadingTasks.Parallel.ForEach (GetAotConfigs (), options,
 					config => {
+
+						if (cts.IsCancellationRequested) {
+							return;
+						}
+
 						if (!config.Valid) {
 							cts.Cancel ();
 							return;
 						}
 
 						if (!RunAotCompiler (config.AssembliesPath, config.AotCompiler, config.AotOptions, config.AssemblyPath, cts.Token)) {
-							LogCodedError ("XA3001", "Could not AOT the assembly: {0}", Path.GetFileName (config.AssemblyPath));
 							cts.Cancel ();
+							LogCodedError ("XA3001", "Could not AOT the assembly: {0}", Path.GetFileName (config.AssemblyPath));
 							return;
 						}
 

@@ -7,6 +7,10 @@ namespace Xamarin.ProjectTools
 {
 	public static class ZipHelper
 	{
+		public static ZipArchive CreateZip (string zipFile)
+		{
+			return ZipArchive.Open (zipFile, FileMode.CreateNew);
+		}
 
 		public static ZipArchive OpenZip (string zipFile)
 		{

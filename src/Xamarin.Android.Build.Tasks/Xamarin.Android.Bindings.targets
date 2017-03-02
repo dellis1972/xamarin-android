@@ -309,7 +309,7 @@ Copyright (C) 2012 Xamarin Inc. All rights reserved.
   </Target>
 
 <Target Name="_ResolveLibraryProjectImports"
-		Inputs="$(MSBuildProjectFullPath);$(_AndroidBuildPropertiesCache)"
+		Inputs="$(MSBuildProjectFullPath);$(_AndroidBuildPropertiesCache);@(InputJar);@(LibraryProjectZip)"
 		Outputs="$(_AndroidLibraryProjectImportsCache)">
 	<ResolveLibraryProjectImports
 		CacheFile="$(_AndroidLibraryProjectImportsCache)"
@@ -330,7 +330,7 @@ Copyright (C) 2012 Xamarin Inc. All rights reserved.
 </Target>
 
 <Target Name="_BuildLibraryImportsCache"
-		Inputs="$(MSBuildProjectFullPath)"
+		Inputs="$(MSBuildProjectFullPath);@(InputJar);@(LibraryProjectZip)"
 		Outputs="$(_AndroidLibraryImportsCache)">
 	<GetImportedLibraries TargetDirectory="$(IntermediateOutputPath)__library_projects__\"
 			CacheFile="$(_AndroidLibraryImportsCache)">
@@ -371,7 +371,7 @@ Copyright (C) 2012 Xamarin Inc. All rights reserved.
 
   <Target Name="ExportJarToXml"
           DependsOnTargets="$(ExportJarToXmlDependsOnTargets)"
-          Inputs="@(EmbeddedJar);@(EmbeddedReferenceJar);@(InputJar);@(ReferenceJar);$(MSBuildAllProjects);@(_AdditionalJavaLibraryReferences)"
+          Inputs="@(LibraryProjectZip);@(EmbeddedJar);@(EmbeddedReferenceJar);@(InputJar);@(ReferenceJar);$(MSBuildAllProjects);@(_AdditionalJavaLibraryReferences)"
           Outputs="$(ApiOutputFile)">
 
     <CreateItem Include="@(ZippedLibraryProjectJars);@(ExtractedJarImports)">
@@ -424,7 +424,7 @@ Copyright (C) 2012 Xamarin Inc. All rights reserved.
 
   <Target Name="GenerateBindings"
           DependsOnTargets="ExportJarToXml;_ResolveMonoAndroidSdks"
-          Inputs="$(ApiOutputFile);@(TransformFile);@(ReferencePath);@(ReferenceDependencyPaths);$(MSBuildAllProjects)"
+          Inputs="$(ApiOutputFile);@(TransformFile);@(ReferencePath);@(ReferenceDependencyPaths);$(MSBuildAllProjects);@(InputJar)"
           Outputs="$(_GeneratorStampFile)">
 
     <!-- Delete previous generated files if they still exist -->
