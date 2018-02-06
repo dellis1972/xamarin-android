@@ -226,6 +226,46 @@ namespace Xamarin.Android.Build.Tests
 		}
 
 		[Test]
+		public void Foo ()
+		{
+			var path = Path.Combine ("temp", TestName);
+			var myClass = new BuildItem.Source ($"MyClass.cs") {
+				TextContent = () => @"using System;
+
+namespace Library1 {
+ 
+	public class MyClass {
+		public static void Foo () {
+		}
+	}
+}"
+			};
+			var lib = new XamarinAndroidLibraryProject () {
+				ProjectName = "Library1",
+				IsRelease = true,
+				Sources = {
+					myClass,
+				},
+			};
+			var proj = new XamarinAndroidApplicationProject () {
+				ProjectName = "App1",
+				IsRelease = true,
+				References = {
+					new BuildItem ("ProjectReference", "..\\Library1\\Library1.csproj")
+				},
+			};
+			using (var lb = CreateDllBuilder (Path.Combine (path, lib.ProjectName), false, false)) {
+				using (var b = CreateApkBuilder (Path.Combine (path, proj.ProjectName), false, false)) {
+					Assert.IsTrue (lb.Build (lib), "build failed");
+					Assert.IsTrue (b.Build (proj), "build failed");
+					myClass.Timestamp = DateTime.UtcNow;
+					Assert.IsTrue (lb.Build (lib), "build failed");
+					Assert.IsTrue (b.Build (proj), "build failed");
+				}
+			}
+		}
+
+		[Test]
 		public void NetStandardReferenceTest ()
 		{
 			var netStandardProject = new DotNetStandard () {
