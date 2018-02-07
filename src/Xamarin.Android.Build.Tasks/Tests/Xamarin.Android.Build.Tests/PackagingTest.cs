@@ -242,25 +242,26 @@ namespace Library1 {
 			};
 			var lib = new XamarinAndroidLibraryProject () {
 				ProjectName = "Library1",
-				IsRelease = true,
+				IsRelease = false,
 				Sources = {
 					myClass,
 				},
 			};
 			var proj = new XamarinAndroidApplicationProject () {
 				ProjectName = "App1",
-				IsRelease = true,
+				IsRelease = false,
 				References = {
 					new BuildItem ("ProjectReference", "..\\Library1\\Library1.csproj")
 				},
 			};
+			proj.SetProperty ("AndroidSupportedAbis", "x86");
 			using (var lb = CreateDllBuilder (Path.Combine (path, lib.ProjectName), false, false)) {
 				using (var b = CreateApkBuilder (Path.Combine (path, proj.ProjectName), false, false)) {
 					Assert.IsTrue (lb.Build (lib), "build failed");
 					Assert.IsTrue (b.Build (proj), "build failed");
 					myClass.Timestamp = DateTime.UtcNow;
-					Assert.IsTrue (lb.Build (lib), "build failed");
-					Assert.IsTrue (b.Build (proj), "build failed");
+					Assert.IsTrue (lb.Build (lib, doNotCleanupOnUpdate: true, saveProject: false), "build failed");
+					Assert.IsTrue (b.Build (proj, doNotCleanupOnUpdate: true, saveProject: false), "build failed");
 				}
 			}
 		}
