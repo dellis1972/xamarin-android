@@ -77,8 +77,18 @@ namespace Xamarin.Android.Tasks
 					if (assemblyDef == null)
 						throw new InvalidOperationException ("Failed to load assembly " + assembly.ItemSpec);
 					if (MonoAndroidHelper.IsReferenceAssembly (assemblyDef)) {
-						Log.LogWarning ($"Ignoring {assembly_path} as it is a Reference Assembly");
-						continue;
+						var refPath = Path.GetFullPath (assemblyDef.MainModule.FullyQualifiedName);
+						if (refPath.Contains ("ref")) {
+							var libPath = refPath.Replace ("ref", "lib");
+							if (!File.Exists (libPath)) {
+								Log.LogWarning ($"Ignoring {assembly_path} as it is a Reference Assembly");
+								continue;
+							}
+							assemblyDef = resolver.Load (libPath, forceLoad: true);
+							if (assemblyDef == null) {
+								continue;
+							}
+						}
 					}
 					topAssemblyReferences.Add (assemblyDef);
 					assemblies.Add (Path.GetFullPath (assemblyDef.MainModule.FullyQualifiedName));
