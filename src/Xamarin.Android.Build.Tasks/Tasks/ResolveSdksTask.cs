@@ -314,6 +314,20 @@ namespace Xamarin.Android.Tasks
 				Log.LogCodedError ("XA0104", "Invalid Sequence Point mode: {0}", SequencePointsMode);
 			AndroidSequencePointsMode = mode.ToString ();
 
+			Version targetFrameworkVersion, buildToolsVersion;
+			if (!Version.TryParse (TargetFrameworkVersion, out targetFrameworkVersion)) {
+				Log.LogCodedError ("XA1003", "Could not determine your TargetFrameworkVersion (0)", TargetFrameworkVersion);
+				return false;
+			}
+			if (!Version.TryParse (AndroidSdkBuildToolsVersion, out buildToolsVersion)) {
+				Log.LogCodedError ("XA1003", "Could not determine your AndroidSdkBuildToolsVersion (0)", AndroidSdkBuildToolsVersion);
+				return false;
+			}
+			if (buildToolsVersion.Major != targetFrameworkVersion.Major) {
+				Log.LogCodedWarning ("XA1002", "Your build-tools (0) are out of date with respect to TargetFrameworkVersion (1)." +
+					"You should consider updating your build-tools.", AndroidSdkBuildToolsVersion, TargetFrameworkVersion);
+			}
+
 			MonoAndroidHelper.TargetFrameworkDirectories = ReferenceAssemblyPaths;
 
 			AndroidApiLevelName = MonoAndroidHelper.SupportedVersions.GetIdFromApiLevel (AndroidApiLevel);
