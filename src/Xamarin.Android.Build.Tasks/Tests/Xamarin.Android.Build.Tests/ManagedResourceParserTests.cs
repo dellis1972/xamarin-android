@@ -106,6 +106,7 @@ namespace Xamarin.Android.Build.Tests {
 			task.Namespace = "Foo.Foo";
 			task.NetResgenOutputFile = Path.Combine (Root, path, "Resource.designer.cs");
 			task.ProjectDir = Path.Combine (Root, path);
+			task.PackageName = "mono.samples.apidemo";
 			task.ResourceDirectory = Path.Combine (Root, path, "res") + Path.DirectorySeparatorChar;
 			task.Resources = new TaskItem [] {
 				new TaskItem (Path.Combine (Root, path, "res", "values", "strings.xml"), new Dictionary<string, string> () {

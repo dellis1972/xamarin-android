@@ -26,6 +26,9 @@ namespace Xamarin.Android.Tasks
 		public string ProjectDir { get; set; }
 
 		[Required]
+		public string PackageName { get; set; }
+
+		[Required]
 		public ITaskItem[] Resources { get; set; }
 
 		[Required]
@@ -98,8 +101,12 @@ namespace Xamarin.Android.Tasks
 			// Parse out the resources from the R.java file
 			CodeTypeDeclaration resources;
 			if (UseManagedResourceGenerator) {
-				var parser = new ManagedResourceParser () { Log = Log };
+				var parser = new ManagedResourceParser () {
+					Log = Log,
+					PackageName = PackageName,
+				};
 				resources = parser.Parse (ResourceDirectory, AdditionalResourceDirectories?.Select (x => x.ItemSpec), IsApplication, resource_fixup);
+				File.WriteAllText (Path.Combine (ResourceDirectory, "..", "stableids.txt"), parser.StableIds);
 			} else {
 				var parser = new JavaResourceParser () { Log = Log };
 				resources = parser.Parse (JavaResgenInputFile, IsApplication, resource_fixup);

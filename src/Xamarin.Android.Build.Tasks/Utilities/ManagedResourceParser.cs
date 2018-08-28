@@ -2,6 +2,7 @@
 using System.CodeDom;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
@@ -16,7 +17,12 @@ namespace Xamarin.Android.Tasks
 		Dictionary<string, string> map;
 		bool app;
 		List<CodeTypeDeclaration> declarationIds = new List<CodeTypeDeclaration> ();
+		StringBuilder emitIds = new StringBuilder ();
 		const string itemPackageId = "0x7f";
+
+		public string PackageName { get; set; }
+
+		public string StableIds => emitIds.ToString ();
 
 		void SortMembers (CodeTypeDeclaration decl)
 		{
@@ -327,6 +333,7 @@ namespace Xamarin.Android.Tasks
 			if (parentType.Members.OfType<CodeTypeMember> ().Any (x => string.Compare (x.Name, mappedName, StringComparison.OrdinalIgnoreCase) == 0))
 				return;
 			int id = value == 0 ? CreateResourceId (parentType): value;
+			emitIds.AppendLine ($"{PackageName}:{parentType.Name.ToLower ()}/{name} = 0x{id.ToString ("X")}");
 			var f = new CodeMemberField (typeof (int), mappedName) {
 				// pity I can't make the member readonly...
 				Attributes = app ? MemberAttributes.Const | MemberAttributes.Public : MemberAttributes.Static | MemberAttributes.Public,
