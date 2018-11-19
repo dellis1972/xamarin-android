@@ -1,0 +1,59 @@
+<!--
+***********************************************************************************************
+Xamarin.Android.ProjectResource.targets
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+  created a backup copy.  Incorrect changes to this file will make it
+  impossible to load or build your projects from the command-line or the IDE.
+
+This file contains targets specific to d8 and r8 integration.
+
+Copyright (C) 2018 Xamarin. All rights reserved.
+***********************************************************************************************
+-->
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<!--
+		Collect and return a list of items to be included in the
+		build. 
+	-->
+	<Target Name="_CollectLibraryProjectResources" BeforeTargets="_ResolveLibraryProjectImports" Condition=" '$(AndroidApplication)' == 'True' ">
+ 		<CallTarget Targets="GetLibraryProjectResources">
+ 	   		<Output TaskParameter="TargetOutputs" ItemName="_LibraryProjectResources" />
+ 		</CallTarget>
+ 		<ItemGroup>
+ 			<NativeReference Include="%(_LibraryProjectResources.Identity)" Condition="'%(_LibraryProjectResources.Type)' == 'AndroidNativeLibrary'" />
+			<_LibraryResourceDirectories Include="%(_LibraryProjectResources.Identity)" Condition="'%(_LibraryProjectResources.Type)' == 'AndroidResourceDirectory'" />
+ 		</ItemGroup>
+ 	</Target>
+	<Target Name="GetLibraryProjectResources"
+			Returns="@(AllLibraryProjectResources)"
+			DependsOnTargets="_SplitProjectReferencesByFileExistence">
+ 		<MSBuild
+			Projects="@(_MSBuildProjectReferenceExistent)"
+ 			Targets="GetLibraryProjectResources"
+ 			BuildInParallel="$(BuildInParallel)"
+ 			Properties="%(_MSBuildProjectReferenceExistent.SetConfiguration); %(_MSBuildProjectReferenceExistent.SetPlatform); %(_MSBuildProjectReferenceExistent.SetTargetFramework)"
+ 			Condition="'@(_MSBuildProjectReferenceExistent)' != '' and '%(_MSBuildProjectReferenceExistent.Private)' != 'false'"
+ 			ContinueOnError="$(ContinueOnError)"
+ 			SkipNonexistentTargets="true"
+ 			RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)"
+		>
+				<Output TaskParameter="TargetOutputs" ItemName="_AllLibraryProjectResources"/>
+ 		</MSBuild>
+ 		<ItemGroup>
+ 			<_AllLibraryProjectResources Include="%(AndroidNativeLibrary.FullPath)">
+				<Assembly>$(TargetPath)</Assembly>
+				<Type>AndroidNativeLibrary</Type>
+				<Link>%(AndroidNativeLibrary.Identity)</Link>
+			</_AllLibraryProjectResources>
+			<_AllLibraryProjectResources Include="$(ProjectDir)$(MonoAndroidResDirIntermediate)">
+				<Assembly>$(TargetPath)</Assembly>
+				<Type>AndroidResourceDirectory</Type>
+			</_AllLibraryProjectResources>
+ 		</ItemGroup>
+		<ItemGroup>
+ 			<AllLibraryProjectResources Include="@(_AllLibraryProjectResources)"/>
+ 		</ItemGroup>
+	</Target>
+</Project>

@@ -370,6 +370,7 @@ Copyright (C) 2011-2012 Xamarin. All rights reserved.
 -->
 <!-- As we split up/refactor this file, put new imports here -->
 <Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.D8.targets" />
+<Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.ProjectResource.targets" />
 <Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.SkipCases.projitems" />
 
 <Target Name="_SeparateAppExtensionReferences">
