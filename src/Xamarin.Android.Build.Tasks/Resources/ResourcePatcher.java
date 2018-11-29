@@ -54,10 +54,15 @@ import java.util.Map;
 import java.util.Set;
 
 import android.app.Activity;
+import android.app.Application;
+import android.app.Application.ActivityLifecycleCallbacks;
+import android.content.ComponentCallbacks;
+import android.content.res.Configuration;
 import android.content.*;
 import android.util.Log;
 import android.util.ArrayMap;
 import android.os.Build;
+import android.os.Bundle;
 import dalvik.system.BaseDexClassLoader;
 import android.util.LongSparseArray;
 import android.util.SparseArray;
@@ -66,6 +71,8 @@ import android.view.ContextThemeWrapper;
 public class ResourcePatcher extends ContentProvider {
 
 	static final int KITKAT = 19;
+
+	private static MyActivityLifecycleCallbacks mCallbacks;
 	
 	@Override
 	public boolean onCreate ()
@@ -76,9 +83,14 @@ public class ResourcePatcher extends ContentProvider {
 	@Override
 	public void attachInfo (android.content.Context context, android.content.pm.ProviderInfo info) {
 		String externalResourceFile = getExternalResourceFile (context);
+		String externalAssetsDir = getExternalAssetsDir (context);
 		super.attachInfo (context, info);
-		MonkeyPatcher.monkeyPatchApplication (context, null, null, externalResourceFile);
-		MonkeyPatcher.monkeyPatchExistingResources (context, externalResourceFile, getActivities (context, false));
+		MonkeyPatcher.monkeyPatchApplication (context, null, null, externalResourceFile, externalAssetsDir);
+		 if ((context instanceof Application) && (mCallbacks == null)) {
+		 	mCallbacks = new MyActivityLifecycleCallbacks(context, externalResourceFile, externalAssetsDir);
+		 	((Application)context).registerActivityLifecycleCallbacks (mCallbacks);
+		// 	//context.registerComponentCallbacks(mCallbacks);
+		 }
 	}
 	
 	// ---
@@ -123,6 +135,7 @@ public class ResourcePatcher extends ContentProvider {
 					Log.v ("ResourcePatcher", "Cannot find external resources, not patching them in");
 					return null;
 				}
+				resourceFile += "/";
 			}
 		}
 
@@ -130,48 +143,119 @@ public class ResourcePatcher extends ContentProvider {
 		return resourceFile;
 	}
 
-	public static List<Activity> getActivities (Context context, boolean foregroundOnly)
-	{
-		List<Activity> list = new ArrayList<Activity> ();
-		try {
-			Class activityThreadClass = Class.forName ("android.app.ActivityThread");
-			Object activityThread = MonkeyPatcher.getActivityThread (context, activityThreadClass);
-			Field activitiesField = activityThreadClass.getDeclaredField ("mActivities");
-			activitiesField.setAccessible (true);
-			Collection c;
-			Object collection = activitiesField.get (activityThread);
-			if (collection instanceof HashMap) {
-				// Older platforms
-				Map activities = (HashMap) collection;
-				c = activities.values();
-			} else if (Build.VERSION.SDK_INT >= KITKAT &&
-					collection instanceof ArrayMap) {
-				ArrayMap activities = (ArrayMap) collection;
-				c = activities.values();
-			} else {
-				return list;
-			}
-			for (Object activityClientRecord : c) {
-				Class activityClientRecordClass = activityClientRecord.getClass ();
-				if (foregroundOnly) {
-					Field pausedField = activityClientRecordClass.getDeclaredField ("paused");
-					pausedField.setAccessible (true);
-					if (pausedField.getBoolean (activityClientRecord)) {
-						continue;
+	private String getExternalAssetsDir (android.content.Context context) {
+		String base = MonkeyPatcher.getIncrementalDeploymentDir (context);
+		String assetsDir = base + ".__override__/assets/assets.apk";
+		if (!(new File (assetsDir).isFile ())) {
+			Log.v ("ResourcePatcher", "Cannot find external assets, not patching them in");
+			return null;
+		}
+		
+		Log.v ("ResourcePatcher", "Found external assets at " + assetsDir);
+		return assetsDir;
+	}
+
+	public static class MyActivityLifecycleCallbacks implements ComponentCallbacks, ActivityLifecycleCallbacks {
+
+		String externalResourceFile;
+		String externalAssetsDir;
+		android.content.Context context;
+
+		public MyActivityLifecycleCallbacks (android.content.Context Context, String ExternalResourceFile, String ExternalAssetsDir)
+		{
+			externalResourceFile = ExternalResourceFile;
+			externalAssetsDir = ExternalAssetsDir;
+			context = Context;
+		}
+
+		@Override
+		public void onConfigurationChanged(Configuration newConfig) {
+			MonkeyPatcher.monkeyPatchExistingResources (context, externalResourceFile, externalAssetsDir, getActivities (context, false));
+		}
+		@Override
+		public void onLowMemory() {
+		}
+
+		@Override
+		public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+			MonkeyPatcher.monkeyPatchExistingResources (activity.getApplicationContext(), externalResourceFile, externalAssetsDir, getActivities (activity.getApplicationContext(), false));
+			Log.i(activity.getClass().getSimpleName(), "onCreate(Bundle)");
+		}
+	
+		@Override
+		public void onActivityStarted(Activity activity) {
+		  Log.i(activity.getClass().getSimpleName(), "onStart()");
+		}
+	
+		@Override
+		public void onActivityResumed(Activity activity) {
+		  Log.i(activity.getClass().getSimpleName(), "onResume()");
+		}
+	
+		@Override
+		public void onActivityPaused(Activity activity) {
+		  Log.i(activity.getClass().getSimpleName(), "onPause()");
+		}
+	
+		@Override
+		public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+		  Log.i(activity.getClass().getSimpleName(), "onSaveInstanceState(Bundle)");
+		}
+	
+		@Override
+		public void onActivityStopped(Activity activity) {
+		  Log.i(activity.getClass().getSimpleName(), "onStop()");
+		}
+	
+		@Override
+		public void onActivityDestroyed(Activity activity) {
+		  Log.i(activity.getClass().getSimpleName(), "onDestroy()");
+		}
+
+		public static List<Activity> getActivities (Context context, boolean foregroundOnly)
+		{
+			List<Activity> list = new ArrayList<Activity> ();
+			try {
+				Class activityThreadClass = Class.forName ("android.app.ActivityThread");
+				Object activityThread = MonkeyPatcher.getActivityThread (context, activityThreadClass);
+				Field activitiesField = activityThreadClass.getDeclaredField ("mActivities");
+				activitiesField.setAccessible (true);
+				Collection c;
+				Object collection = activitiesField.get (activityThread);
+				if (collection instanceof HashMap) {
+					// Older platforms
+					Map activities = (HashMap) collection;
+					c = activities.values();
+				} else if (Build.VERSION.SDK_INT >= KITKAT &&
+						collection instanceof ArrayMap) {
+					ArrayMap activities = (ArrayMap) collection;
+					c = activities.values();
+				} else {
+					return list;
+				}
+				for (Object activityClientRecord : c) {
+					Class activityClientRecordClass = activityClientRecord.getClass ();
+					if (foregroundOnly) {
+						Field pausedField = activityClientRecordClass.getDeclaredField ("paused");
+						pausedField.setAccessible (true);
+						if (pausedField.getBoolean (activityClientRecord)) {
+							continue;
+						}
+					}
+					Field activityField = activityClientRecordClass.getDeclaredField ("activity");
+					activityField.setAccessible (true);
+					Activity activity = (Activity) activityField.get (activityClientRecord);
+					if (activity != null) {
+						Log.v ("ResourcePatcher", "Adding " + activity.toString ());
+						list.add (activity);
 					}
 				}
-				Field activityField = activityClientRecordClass.getDeclaredField ("activity");
-				activityField.setAccessible (true);
-				Activity activity = (Activity) activityField.get (activityClientRecord);
-				if (activity != null) {
-					list.add (activity);
+			} catch (Throwable e) {
+				if (Log.isLoggable ("ResourcePatcher", Log.WARN)) {
+					Log.w ("ResourcePatcher", "Error retrieving activities", e);
 				}
 			}
-		} catch (Throwable e) {
-			if (Log.isLoggable ("ResourcePatcher", Log.WARN)) {
-				Log.w ("ResourcePatcher", "Error retrieving activities", e);
-			}
+			return list;
 		}
-		return list;
-	}
+	  }
 }

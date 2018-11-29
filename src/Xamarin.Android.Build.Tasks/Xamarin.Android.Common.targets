@@ -2365,6 +2365,18 @@ because xbuild doesn't support framework reference assemblies.
   <Touch Files="$(_AndroidStampDirectory)_GeneratePackageManagerJava.stamp" AlwaysCreate="True" />
 </Target>
 
+<Target Name="_CollectLibraryAssets"
+    Inputs="$(_AndroidLibrayProjectIntermediatePath)*.stamp')"
+    Outputs="$(_AndroidStampDirectory)_CollectLibraryAssets.stamp">
+  <CollectLibraryAssets
+    AdditionalAssetDirectories="@(LibraryAssetDirectories)"
+    AssetDirectory="$(MonoAndroidAssetsDirIntermediate)" />
+  <Touch Files="$(_AndroidStampDirectory)_CollectLibraryAssets.stamp" AlwaysCreate="True" />
+  <ItemGroup>
+    <FileWrites Include="$(_AndroidStampDirectory)_CollectLibraryAssets.stamp" />
+  </ItemGroup>
+</Target>
+
 <PropertyGroup>
 	<_CreateBaseApkDependsOnTargets>
 		_GetAddOnPlatformLibraries;
@@ -2374,6 +2386,7 @@ because xbuild doesn't support framework reference assemblies.
 		_CreateAdditionalResourceCache;
 		UpdateAndroidAssets;
 		$(_AfterCreateBaseApkDependsOnTargets);
+		_CollectLibraryAssets;
 	</_CreateBaseApkDependsOnTargets>
 	<_CreateBaseApkInputs>
 		$(MSBuildAllProjects)
@@ -2400,10 +2413,6 @@ because xbuild doesn't support framework reference assemblies.
   	LibraryProjectImportsDirectoryName="$(_LibraryProjectImportsDirectoryName)">
     <Output TaskParameter="ExtraPackages" PropertyName="AaptExtraPackages" />
   </GetExtraPackages>
-  
-  <CollectLibraryAssets
-    AdditionalAssetDirectories="@(LibraryAssetDirectories)"
-    AssetDirectory="$(MonoAndroidAssetsDirIntermediate)" />
 
   <!-- Create the base .apk with resources and assets -->
   <Aapt

@@ -52,7 +52,8 @@ public class MonkeyPatcher {
     public static void monkeyPatchApplication (Context context,
                                               Application bootstrap,
                                               Application realApplication,
-                                              String externalResourceFile) {
+                                              String externalResourceFile,
+                                              String externalAssetsDir) {
         /*
         The code seems to perform this:
         Application realApplication = the newly instantiated (in attachBaseContext) user app
@@ -152,6 +153,7 @@ public class MonkeyPatcher {
             mApplication.setAccessible (true);
             Field mResDir = loadedApkClass.getDeclaredField ("mResDir");
             mResDir.setAccessible (true);
+
             // 10 doesn't have this field, 14 does. Fortunately, there are not many Honeycomb devices
             // floating around.
             Field mLoadedApk = null;
@@ -181,8 +183,44 @@ public class MonkeyPatcher {
                         Log.v ("MonkeyPatcher" , "Patched mResDir");
                         mResDir.set (loadedApk, externalResourceFile);
                     }
+                    /*if (externalAssetsDir != null) {
+                        Resources resources = null;
+                        try {
+                            Method mgetResources = loadedApkClass.getDeclaredMethod("getResources");
+                            mgetResources.setAccessible(true);
+                            resources = (Resources)mgetResources.invoke(loadedApk);
+                        } catch (Throwable ignore) {
+                            Method mgetResources = loadedApkClass.getDeclaredMethod("getResources", activityThread);
+                            mgetResources.setAccessible(true);
+                            resources = (Resources)mgetResources.invoke(loadedApk, currentActivityThread);
+                        }
+                    
+                        if (resources != null) {
+                            Log.v ("MonkeyPatcher", "Got Application Resources");
+                            try {
+                                Field mAssets = Resources.class.getDeclaredField ("mAssets");
+                                mAssets.setAccessible (true);
+                                Object iAssets = mAssets.get(resources);
+                                PatchExistingAssetManager (iAssets, externalAssetsDir);
+                                Log.v ("MonkeyPatcher", "Patched Application Resources " + resources.toString() + " with " + iAssets.toString ());
+                            } catch (Throwable ignore) {
+                                Field mResourcesImpl = Resources.class.getDeclaredField ("mResourcesImpl");
+                                mResourcesImpl.setAccessible (true);
+                                Object resourceImpl = mResourcesImpl.get (resources);
+                                Field implAssets = resourceImpl.getClass ().getDeclaredField ("mAssets");
+                                implAssets.setAccessible (true);
+                                Object iAssets = implAssets.get(resourceImpl);
+                                PatchExistingAssetManager (iAssets, externalAssetsDir);
+                                Log.v ("MonkeyPatcher", "Patched Application Resources " + resources.toString() + " with " + iAssets.toString ());
+                            }
+                            for (String asset : resources.getAssets ().list ("")) {
+                                Log.v ("MonkeyPatcher", asset);
+                            }
+                        }
+                    }*/
                 }
             }
+
         } catch (Throwable e) {
             throw new IllegalStateException (e);
         }
@@ -216,8 +254,61 @@ public class MonkeyPatcher {
             return null;
         }
     }
+
+    private static AssetManager mAssetManager = null;
+
+    private static void PatchExistingAssetManager (Object manager, String externalAssetsDir)
+    {
+        try {
+            Method mAddAssetPath = AssetManager.class.getDeclaredMethod ("addAssetPath", String.class);
+            mAddAssetPath.setAccessible (true);
+            int cookie = 0;
+            if (externalAssetsDir != null) {
+                cookie = (Integer) mAddAssetPath.invoke (manager, externalAssetsDir);
+                if (cookie == 0) {
+                    throw new IllegalStateException("Could not create new AssetManager");
+                }
+                Log.v ("MonkeyPatcher" , "Added " + externalAssetsDir + " got " + cookie);
+            }
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private static AssetManager createNewAssetManager (String externalResourceFile, String externalAssetsDir)
+    {
+        if (mAssetManager != null)
+            return mAssetManager;
+        try {
+            mAssetManager = AssetManager.class.getConstructor ().newInstance ();
+            Method mAddAssetPath = AssetManager.class.getDeclaredMethod ("addAssetPath", String.class);
+            mAddAssetPath.setAccessible (true);
+            int cookie = 0;
+            if (externalAssetsDir != null) {
+                cookie = (Integer) mAddAssetPath.invoke (mAssetManager, externalAssetsDir);
+                if (cookie == 0) {
+                    throw new IllegalStateException("Could not create new AssetManager");
+                }
+                Log.v ("MonkeyPatcher" , "Added " + externalAssetsDir + " got " + cookie);
+            }
+            cookie = (Integer) mAddAssetPath.invoke (mAssetManager, externalResourceFile);
+            if (cookie == 0) {
+                throw new IllegalStateException("Could not create new AssetManager");
+            }
+            Log.v ("MonkeyPatcher" , "Added " + externalResourceFile + " got " + cookie);
+            if (SDK_INT < P && SDK_INT >= KITKAT) {
+                Method mEnsureStringBlocks = AssetManager.class.getDeclaredMethod ("ensureStringBlocks");
+                mEnsureStringBlocks.setAccessible (true);
+                mEnsureStringBlocks.invoke (mAssetManager);
+            }
+            return mAssetManager;
+        } catch (Throwable ignore) {
+            return null;
+        }
+    }
+
     public static void monkeyPatchExistingResources (Context context,
                                                     String externalResourceFile,
+                                                    String externalAssetsDir,
                                                     Collection<Activity> activities) {
         if (externalResourceFile == null) {
             return;
@@ -225,47 +316,43 @@ public class MonkeyPatcher {
         try {
             // Create a new AssetManager instance and point it to the resources installed under
             // /sdcard
-            AssetManager newAssetManager = AssetManager.class.getConstructor ().newInstance ();
-            Method mAddAssetPath = AssetManager.class.getDeclaredMethod ("addAssetPath", String.class);
-            mAddAssetPath.setAccessible (true);
-            if (((Integer) mAddAssetPath.invoke (newAssetManager, externalResourceFile)) == 0) {
-                throw new IllegalStateException("Could not create new AssetManager");
-            }
-            // Kitkat needs this method call, Lollipop doesn't. However, it doesn't seem to cause any harm
-            // in L, so we do it unconditionally.
-            if (SDK_INT < P && SDK_INT >= KITKAT) {
-                Method mEnsureStringBlocks = AssetManager.class.getDeclaredMethod ("ensureStringBlocks");
-                mEnsureStringBlocks.setAccessible (true);
-                mEnsureStringBlocks.invoke (newAssetManager);
-            }
             if (activities != null) {
                 for (Activity activity : activities) {
+                    Log.v ("MonkeyPatcher" , "Patching Activity " + activity.getTitle ());
                     Resources resources = activity.getResources ();
                     try {
                         Field mAssets = Resources.class.getDeclaredField ("mAssets");
                         mAssets.setAccessible (true);
-                        mAssets.set (resources, newAssetManager);
+                        Object iAssets = mAssets.get(resources);
+                        PatchExistingAssetManager (iAssets, externalAssetsDir);
+                        Log.v ("MonkeyPatcher", "Patched Activity Resources " + resources.toString() + " with " + iAssets.toString ());
                     } catch (Throwable ignore) {
                         Field mResourcesImpl = Resources.class.getDeclaredField ("mResourcesImpl");
                         mResourcesImpl.setAccessible (true);
                         Object resourceImpl = mResourcesImpl.get (resources);
                         Field implAssets = resourceImpl.getClass ().getDeclaredField ("mAssets");
                         implAssets.setAccessible (true);
-                        implAssets.set (resourceImpl, newAssetManager);
+                        Object iAssets = implAssets.get(resourceImpl);
+                        PatchExistingAssetManager (iAssets, externalAssetsDir);
+                        Log.v ("MonkeyPatcher", "Patched Activity Resources " + resourceImpl.toString() + " with " + iAssets.toString ());
                     }
                     Resources.Theme theme = activity.getTheme ();
                     try {
                         try {
                             Field ma = Resources.Theme.class.getDeclaredField ("mAssets");
                             ma.setAccessible (true);
-                            ma.set (theme, newAssetManager);
+                            Object iAssets = ma.get(theme);
+                            PatchExistingAssetManager (iAssets, externalAssetsDir);
+                            Log.v ("MonkeyPatcher", "Patched Theme Resources " + theme.toString() + " with " + iAssets.toString ());
                         } catch (NoSuchFieldException ignore) {
                             Field themeField = Resources.Theme.class.getDeclaredField ("mThemeImpl");
                             themeField.setAccessible (true);
                             Object impl = themeField.get (theme);
                             Field ma = impl.getClass ().getDeclaredField ("mAssets");
                             ma.setAccessible (true);
-                            ma.set (impl, newAssetManager);
+                            Object iAssets = ma.get(impl);
+                            PatchExistingAssetManager (iAssets, externalAssetsDir);
+                            Log.v ("MonkeyPatcher", "Patched Theme Resources " + impl.toString() + " with " + iAssets.toString ());
                         }
                         Field mt = ContextThemeWrapper.class.getDeclaredField ("mTheme");
                         mt.setAccessible (true);
@@ -273,7 +360,7 @@ public class MonkeyPatcher {
                         Method mtm = ContextThemeWrapper.class.getDeclaredMethod ("initializeTheme");
                         mtm.setAccessible (true);
                         mtm.invoke (activity);
-                        if (SDK_INT < 24) { // As of API 24, mTheme is gone (but updates work
+                        /*if (SDK_INT < 24) { // As of API 24, mTheme is gone (but updates work
                                             // without these changes
                             Method mCreateTheme = AssetManager.class
                                     .getDeclaredMethod ("createTheme");
@@ -282,7 +369,7 @@ public class MonkeyPatcher {
                             Field mTheme = Resources.Theme.class.getDeclaredField ("mTheme");
                             mTheme.setAccessible (true);
                             mTheme.set (theme, internalTheme);
-                        }
+                        }*/
                     } catch (Throwable e) {
                         Log.e ("MonkeyPatcher", "Failed to update existing theme for activity " + activity,
                                 e);
@@ -328,14 +415,18 @@ public class MonkeyPatcher {
                     try {
                         Field mAssets = Resources.class.getDeclaredField ("mAssets");
                         mAssets.setAccessible (true);
-                        mAssets.set (resources, newAssetManager);
+                        Object iAssets = mAssets.get(resources);
+                        PatchExistingAssetManager (iAssets, externalAssetsDir);
+                        Log.v ("MonkeyPatcher", "Patched Active Resources " + resources.toString() + " with " + iAssets.toString ());
                     } catch (Throwable ignore) {
                         Field mResourcesImpl = Resources.class.getDeclaredField ("mResourcesImpl");
                         mResourcesImpl.setAccessible (true);
                         Object resourceImpl = mResourcesImpl.get (resources);
                         Field implAssets = resourceImpl.getClass ().getDeclaredField ("mAssets");
                         implAssets.setAccessible (true);
-                        implAssets.set (resourceImpl, newAssetManager);
+                        Object iAssets = implAssets.get(resourceImpl);
+                        PatchExistingAssetManager (iAssets, externalAssetsDir);
+                        Log.v ("MonkeyPatcher", "Patched Active Resources " + resourceImpl.toString() + " with " + iAssets.toString ());
                     }
                     resources.updateConfiguration (resources.getConfiguration (), resources.getDisplayMetrics ());
                 }
