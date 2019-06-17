@@ -24,6 +24,7 @@ namespace Xamarin.Android.Prepare
 			Steps.Add (new Step_DownloadMonoArchive ());
 			AddRequiredOSSpecificSteps (true);
 			Steps.Add (new Step_PrepareBundle ());
+			Steps.Add (new Step_DownloadXDelta ());
 			AddRequiredOSSpecificSteps (false);
 		}
 
