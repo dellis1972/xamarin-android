@@ -326,8 +326,9 @@ Copyright (C) 2011-2012 Xamarin. All rights reserved.
 	<_AndroidMainDexListFile>$(IntermediateOutputPath)multidex.keep</_AndroidMainDexListFile>
 	
 	<AndroidManifestPlaceholders Condition="'$(AndroidManifestPlaceholders)' == ''"></AndroidManifestPlaceholders>
-		
-	<_PackagedResources>$(IntermediateOutputPath)android\bin\packaged_resources</_PackagedResources>
+	
+	<_PackagedResourcesFileName>packaged_resources</_PackagedResourcesFileName>
+	<_PackagedResources>$(IntermediateOutputPath)android\bin\$(_PackagedResourcesFileName)</_PackagedResources>
 
 	<_Android32bitArchitectures>armeabi-v7a;x86;mips</_Android32bitArchitectures>
 	<_Android64bitArchitectures>arm64-v8a;x86_64;mips64</_Android64bitArchitectures>
@@ -2134,6 +2135,7 @@ because xbuild doesn't support framework reference assemblies.
 		;_CopyPdbFiles
 		;_CopyMdbFiles
 		;_LinkAssemblies
+		;$(AfterLinkAssemblies)
 	</_PrepareAssembliesDependsOnTargets>
 </PropertyGroup>
   
@@ -2885,6 +2887,7 @@ because xbuild doesn't support framework reference assemblies.
 		_CopyPdbFiles;
 		_CopyMdbFiles;
 		_LinkAssemblies;
+		$(AfterLinkAssemblies);
 		_GenerateJavaStubs;
 		_ConvertCustomView;
 		$(AfterGenerateAndroidManifest);
@@ -3555,6 +3558,9 @@ because xbuild doesn't support framework reference assemblies.
 
 <Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.Common.Debugging.targets"
         Condition="Exists('$(MSBuildThisFileDirectory)Xamarin.Android.Common.Debugging.targets')"/>
+
+<Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.Build.Tasks.Patching.targets"
+        Condition="Exists('$(MSBuildThisFileDirectory)Xamarin.Android.Build.Tasks.Patching.targets')"/>
 
 <Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.PCLSupport.targets" />
 <Import Project="$(MSBuildThisFileDirectory)Xamarin.Android.Designer.targets" />
