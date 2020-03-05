@@ -28,6 +28,12 @@ namespace Xamarin.Android.Tasks
 
 		public string [] ManifestPlaceholders { get; set; }
 
+		[Output]
+		public string VersionCode { get; set; }
+
+		[Output]
+		public string VersionName { get; set; }
+
 		string tempFile;
 		string responseFile;
 
@@ -44,6 +50,9 @@ namespace Xamarin.Android.Tasks
 				try {
 					m.Save (Log, ms);
 					MonoAndroidHelper.CopyIfStreamChanged (ms, OutputManifestFile);
+					var doc = XDocument.Load (OutputManifestFile);
+					VersionCode = doc.Root.Element("manifest").Attribute("versionCode").Value;
+					VersionName = doc.Root.Element("manifest").Attribute("versionName").Value;
 					return result;
 				} finally {
 					MemoryStreamPool.Shared.Return (ms);

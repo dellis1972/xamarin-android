@@ -2121,7 +2121,10 @@ because xbuild doesn't support framework reference assemblies.
       OutputManifestFile="$(IntermediateOutputPath)android\AndroidManifest.xml"
       LibraryManifestFiles="@(ExtractedManifestDocuments)"
       ManifestPlaceholders="$(AndroidManifestPlaceholders)"
-  />
+  >
+    <Output TaskParameter="VersionCode" PropertyName="AndroidVersionCode" />
+    <Output TaskParameter="VersionName" PropertyName="AndroidVersionName" />
+  </ManifestMerger>
   <ItemGroup>
     <FileWrites Include="$(IntermediateOutputPath)android\AndroidManifest.xml" />
   </ItemGroup>
