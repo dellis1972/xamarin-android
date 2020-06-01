@@ -124,6 +124,39 @@ namespace Bug12935
 		}
 
 		[Test]
+		public void CheckMetaDataAttrbiuteCasing ()
+		{
+			var proj = new XamarinAndroidApplicationProject () {
+				IsRelease = true,
+			};
+			proj.MainActivity = @"using Android.App;
+using Android.OS;
+
+namespace Unnamed
+{
+    [Activity(MainLauncher = true)]
+    [MetaData(""foo"", Resource = ""@color/colorAccent"")]
+    public class MainActivity : Activity
+    {
+        protected override void OnCreate(Bundle savedInstanceState)
+        {
+            base.OnCreate(savedInstanceState);
+        }
+    }
+}";
+			proj.AndroidResources.Add (new AndroidItem.AndroidResource ("Resources\\values\\Colors.xml") {
+				TextContent = () => @"<?xml version=""1.0"" encoding=""utf-8""?>
+<resources>
+  <color name=""colorAccent"" >#3498db</color>
+</resources>",
+			});
+			var directory = Path.Combine ("temp", "CheckMetaDataAttrbiuteCasing");
+			using (var builder = CreateApkBuilder (directory)) {
+				Assert.IsTrue (builder.Build (proj), "Build should have succeeded");
+			}
+		}
+
+		[Test]
 		public void CheckElementReOrdering ([Values (true, false)] bool useAapt2)
 		{
 			var proj = new XamarinAndroidApplicationProject () {
