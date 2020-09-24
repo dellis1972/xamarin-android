@@ -73,15 +73,17 @@ namespace Xamarin.ProjectTools
 
 		public class ProjectReference : BuildItem
 		{
-			public ProjectReference (string include, string name = "UnnamedReference", string guid = null)
-				: this (() => include, name, guid)
+			public ProjectReference (string include, string name = "UnnamedReference", string guid = null, bool? referenceOutputAssembly = null)
+				: this (() => include, name, guid, referenceOutputAssembly)
 			{
 			}
-			public ProjectReference (Func<string> include, string name = "UnnamedReference", string guid = null)
+			public ProjectReference (Func<string> include, string name = "UnnamedReference", string guid = null, bool? referenceOutputAssembly = null)
 				: base (BuildActions.ProjectReference, include)
 			{
 				Metadata.Add ("Project", "{" + (guid ?? Guid.NewGuid ().ToString ()) + "}");
 				Metadata.Add ("Name", name);
+				if (referenceOutputAssembly.HasValue)
+					Metadata.Add ("ReferenceOutputAssembly", $"{referenceOutputAssembly.Value}");
 			}
 		}
 

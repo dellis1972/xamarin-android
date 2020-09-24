@@ -30,6 +30,9 @@ namespace Xamarin.Android.Tasks
 		public bool EmbeddedDSOsEnabled { get; set; }
 
 		[Output]
+		public bool HasCode { get; set; } = true;
+
+		[Output]
 		public ITaskItem [] UsesLibraries { get; set; }
 
 		public override bool RunTask ()
@@ -42,6 +45,11 @@ namespace Xamarin.Android.Tasks
 				string text = app.Attribute (androidNs + "extractNativeLibs")?.Value;
 				if (bool.TryParse (text, out bool value)) {
 					EmbeddedDSOsEnabled = !value;
+				}
+
+				text= app.Attribute (androidNs + "hasCode")?.Value;
+				if (bool.TryParse (text, out value)) {
+					HasCode = value;
 				}
 
 				var libraries = new List<ITaskItem> ();

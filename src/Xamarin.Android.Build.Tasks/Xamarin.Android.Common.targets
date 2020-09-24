@@ -161,6 +161,8 @@ Copyright (C) 2011-2012 Xamarin. All rights reserved.
 	<_XASupportsFastDev Condition=" '$(_XASupportsFastDev)' == '' ">False</_XASupportsFastDev>
 	<AndroidUseInterpreter Condition=" '$(AndroidUseInterpreter)' == '' ">False</AndroidUseInterpreter>
 	<AndroidApplication Condition="'$(AndroidApplication)' == ''">false</AndroidApplication>
+	<AndroidFeature Condition=" '$(AndroidFeature)' == '' ">false</AndroidFeature>
+	<AndroidApplication Condition="'$(AndroidFeature)' == 'true'">true</AndroidApplication>
 	<AndroidNeedsInternetPermission Condition="'$(AndroidNeedsInternetPermission)' == '' And '$(AndroidEmbedProfilers)' == ''">False</AndroidNeedsInternetPermission>
 	<AndroidNeedsInternetPermission Condition="'$(AndroidNeedsInternetPermission)' == '' And '$(AndroidEmbedProfilers)' != ''">True</AndroidNeedsInternetPermission>
 	<AndroidUseLatestPlatformSdk Condition="'$(AndroidUseLatestPlatformSdk)' == ''">False</AndroidUseLatestPlatformSdk>
@@ -1480,6 +1482,7 @@ because xbuild doesn't support framework reference assemblies.
       AndroidApiLevel="$(_AndroidApiLevel)">
     <Output TaskParameter="EmbeddedDSOsEnabled" PropertyName="_EmbeddedDSOsEnabled" />
     <Output TaskParameter="UsesLibraries"       ItemName="AndroidExternalJavaLibrary" />
+    <Output TaskParameter="HasCode"             PropertyName="_AndroidHasCode" />
   </ReadAndroidManifest>
   <PropertyGroup>
     <AndroidStoreUncompressedFileExtensions Condition=" '$(_EmbeddedDSOsEnabled)' == 'True' ">.so;$(AndroidStoreUncompressedFileExtensions)</AndroidStoreUncompressedFileExtensions>
@@ -1845,6 +1848,13 @@ because xbuild doesn't support framework reference assemblies.
    <Touch Files="$(_AndroidApkPerAbiFlagFile)" Condition="'$(AndroidCreatePackagePerAbi)' == 'true'" AlwaysCreate="True" />
 </Target>
 
+<Target Name="_ExcludeFilesForFeature" Condition=" '$(AndroidFeature)' == 'true' ">
+  <ItemGroup>
+      <_ApplicationSharedLibrary Remove="@(_ApplicationSharedLibrary-&gt;'%(Identity)')" />
+      <_ShrunkFrameworkAssemblies Remove="@(_ShrunkFrameworkAssemblies-&gt;'%(Identity)')" />
+  </ItemGroup>
+</Target>
+
 <Target Name="_PrepareNativeAssemblyItems" DependsOnTargets="_GenerateJavaStubs">
   <ItemGroup>
     <_NativeAssemblyTarget Include="@(_TypeMapAssemblySource->'$([System.IO.Path]::ChangeExtension('%(Identity)', '.o'))')">
@@ -2025,6 +2035,7 @@ because xbuild doesn't support framework reference assemblies.
     SupportedAbis="@(_BuildTargetAbis)"
     CreatePackagePerAbi="$(AndroidCreatePackagePerAbi)"
     Debug="$(AndroidIncludeDebugSymbols)"
+    HasCode="$(_AndroidHasCode)"
     EnableCompression="$(AndroidEnableAssemblyCompression)"
     JavaSourceFiles="@(AndroidJavaSource)"
     JavaLibraries="@(AndroidJavaLibrary)"
@@ -2057,6 +2068,7 @@ because xbuild doesn't support framework reference assemblies.
       SupportedAbis="@(_BuildTargetAbis)"
       CreatePackagePerAbi="False"
       Debug="$(AndroidIncludeDebugSymbols)"
+      HasCode="$(_AndroidHasCode)"
       EnableCompression="$(AndroidEnableAssemblyCompression)"
       JavaSourceFiles="@(AndroidJavaSource)"
       JavaLibraries="@(AndroidJavaLibrary)"
@@ -2070,7 +2082,7 @@ because xbuild doesn't support framework reference assemblies.
     <Output TaskParameter="OutputFiles" ItemName="BaseZipFile" />
   </BuildBaseAppBundle>
   <BuildAppBundle
-      Condition=" '$(AndroidPackageFormat)' == 'aab' "
+      Condition=" '$(AndroidPackageFormat)' == 'aab' And '$(AndroidFeature)' == 'false' "
       ToolPath="$(JavaToolPath)"
       JavaMaximumHeapSize="$(JavaMaximumHeapSize)"
       JavaOptions="$(JavaOptions)"
@@ -2135,7 +2147,7 @@ because xbuild doesn't support framework reference assemblies.
   <Delete Files="$(_AabFile)" Condition="Exists ('$(_AabFile)')" />
 
   <Copy Condition=" '$(AndroidPackageFormat)' != 'aab' " SourceFiles="%(ApkFiles.FullPath)" DestinationFolder="$(OutDir)" />
-  <Copy Condition=" '$(AndroidPackageFormat)' == 'aab' " SourceFiles="$(_AppBundleIntermediate)" DestinationFolder="$(OutDir)" />
+  <Copy Condition=" '$(AndroidPackageFormat)' == 'aab' And Exists ('$(_AppBundleIntermediate)')" SourceFiles="$(_AppBundleIntermediate)" DestinationFolder="$(OutDir)" />
 
   <MakeDir Directories="$(_MSYMDirectory)" Condition=" '$(MonoSymbolArchive)' == 'True' " />
   <MonoSymbolicate
@@ -2231,7 +2243,7 @@ because xbuild doesn't support framework reference assemblies.
 	<Touch Files="$(_AndroidDebugKeyStoreFlag)" AlwaysCreate="True" Condition="'$(AndroidKeyStore)'!='True'" />
 </Target>
 
-<Target Name="_PrepareForSign">
+<Target Name="_PrepareForSign" Condition=" '$(AndroidFeature)' == 'false' ">
   <PropertyGroup Condition=" '$(AndroidPackageFormat)' == 'aab' ">
     <_SignInputs>
       @(_AndroidMSBuildAllProjects);
@@ -2255,6 +2267,7 @@ because xbuild doesn't support framework reference assemblies.
 </Target>
 
 <Target Name="_Sign"
+  Condition=" '$(AndroidFeature)' == 'false' "
 	Inputs="$(_SignInputs)"
 	Outputs="$(_SignOutputs)"
 	DependsOnTargets="_PrepareForSign;_ResolveAndroidSigningKey">

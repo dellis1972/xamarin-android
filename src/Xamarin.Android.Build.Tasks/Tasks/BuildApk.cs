@@ -82,6 +82,8 @@ namespace Xamarin.Android.Tasks
 		public string UncompressedFileExtensions { get; set; }
 		public bool InterpreterEnabled { get; set; }
 
+		public bool HasCode { get; set; }
+
 		// Make it required after https://github.com/xamarin/monodroid/pull/1094 is merged
 		//[Required]
 		public bool EnableCompression { get; set; }
@@ -178,10 +180,12 @@ namespace Xamarin.Android.Tasks
 				apk.FixupWindowsPathSeparators ((a, b) => Log.LogDebugMessage ($"Fixing up malformed entry `{a}` -> `{b}`"));
 
 				// Add classes.dx
-				foreach (var dex in DalvikClasses) {
-					string apkName = dex.GetMetadata ("ApkName");
-					string dexPath = string.IsNullOrWhiteSpace (apkName) ? Path.GetFileName (dex.ItemSpec) : apkName;
-					AddFileToArchiveIfNewer (apk, dex.ItemSpec, DalvikPath + dexPath);
+				if (HasCode) {
+					foreach (var dex in DalvikClasses) {
+						string apkName = dex.GetMetadata ("ApkName");
+						string dexPath = string.IsNullOrWhiteSpace (apkName) ? Path.GetFileName (dex.ItemSpec) : apkName;
+						AddFileToArchiveIfNewer (apk, dex.ItemSpec, DalvikPath + dexPath);
+					}
 				}
 
 				if (EmbedAssemblies && !BundleAssemblies)

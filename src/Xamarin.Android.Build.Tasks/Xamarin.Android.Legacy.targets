@@ -146,6 +146,7 @@ projects. .NET 5 projects will not import this file.
       _CheckApkPerAbiFlag;
       _LintChecks;
       _IncludeNativeSystemLibraries;
+      _ExcludeFilesForFeature;
       _CheckGoogleSdkRequirements;
     </_PrepareBuildApkDependsOnTargets>
     <_UpdateAndroidResourcesDependsOn>
@@ -492,7 +493,7 @@ projects. .NET 5 projects will not import this file.
     </ItemGroup>
   </Target>
 
-  <Target Name="_IncludeNativeSystemLibraries">
+  <Target Name="_IncludeNativeSystemLibraries" Condition=" '$(AndroidFeature)' == 'false' ">
     <PropertyGroup>
       <_Assemblies>@(_ResolvedFrameworkAssemblies)</_Assemblies>
       <_TargetInterpreterPrefix Condition=" '$(AndroidUseInterpreter)' != 'False' ">interpreter-</_TargetInterpreterPrefix>
