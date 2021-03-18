@@ -966,5 +966,66 @@ public class Test
 				}
 			}
 		}
+
+		[Test]
+		public void DynamicFeatures ()
+		{
+			var path = Path.Combine (Root, "temp", TestName);
+
+			// need to have an `assets.pb` which contains the assets.
+			// a `resources.pb` which JUST contains the resources in
+			// this feature.
+			var feature = new XamarinAndroidLibraryProject {
+				ProjectName = "AssetsFeature",
+				IsRelease=true,
+			};
+			feature.SetProperty (feature.ReleaseProperties, "AndroidPackageFormat", "aab");
+			feature.SetProperty (feature.ReleaseProperties, "AndroidFeature", "true");
+			feature.SetProperty (feature.ReleaseProperties, "AndroidApplication", "true");
+			feature.OtherBuildItems.Add(
+				new AndroidItem.AndroidAsset ("Assets\\Text.txt") {
+					TextContent = () => "Hello World",
+				}
+			);
+			feature.OtherBuildItems.Add (new BuildItem.NoActionResource ("Properties\\AndroidManifest.xml") {
+				TextContent = () => @"<?xml version=""1.0"" encoding=""utf-8""?>
+<manifest xmlns:android=""http://schemas.android.com/apk/res/android"" xmlns:tools=""http://schemas.android.com/tools"" xmlns:dist=""http://schemas.android.com/apk/distribution"" android:versionCode=""1"" android:versionName=""1.0"" package=""com.infinitespace_studios.dynamicassets.extraassets"" split=""extra_assets"" android:isFeatureSplit=""true"">
+	<dist:module dist:title=""@string/library_name"" dist:instant=""false"">
+		<dist:delivery>
+			<dist:on-demand />
+		</dist:delivery>
+		<dist:fusing dist:include=""false"" />
+	</dist:module>
+	<application android:hasCode=""false"" tools:replace=""android:hasCode""></application>
+	<uses-sdk android:minSdkVersion=""19"" android:targetSdkVersion=""30"" />
+</manifest>",
+			});
+
+			feature.SetProperty ("AndroidManifest", "Properties\\AndroidManifest.xml");
+
+			var app = new XamarinAndroidApplicationProject {
+				ProjectName = "App1",
+				IsRelease=true,
+			};
+			app.OtherBuildItems.Add (new BuildItem ("AndroidAppBundleModules", $"..\\{feature.ProjectName}\\obj\\Release\\android\\bin\\base.zip") {
+			});
+			app.SetProperty (app.ReleaseProperties, "AndroidPackageFormat", "aab");
+			var strings = app.AndroidResources.First (x => x.Include () == "Resources\\values\\Strings.xml");
+			strings.TextContent = () => @"<?xml version=""1.0"" encoding=""utf-8""?>
+<resources>
+	<string name=""hello"">Hello World, Click Me!</string>
+	<string name=""app_name"">App1</string>
+	<string name=""extra_assets"">extra_assets</string>
+</resources>";
+			app.References.Add (new BuildItem.ProjectReference ($"..\\{feature.ProjectName}\\{feature.ProjectName}.csproj", feature.ProjectName, feature.ProjectGuid, referenceOutputAssembly: false));
+			using (var builder = CreateDllBuilder (Path.Combine (path, feature.ProjectName))) {
+				Assert.IsTrue (builder.Build (feature), "Feature Build should have succeeded.");
+				using (var b = CreateApkBuilder (Path.Combine (path, app.ProjectName))) {
+					Assert.IsTrue (b.Build (app), "App Build should have succeeded.");
+					b.Target = "SignAndroidPackage";
+					Assert.IsTrue (b.Build (app), "App SignAndroidPackage should have succeeded.");
+				}
+			}
+		}
 	}
 }
