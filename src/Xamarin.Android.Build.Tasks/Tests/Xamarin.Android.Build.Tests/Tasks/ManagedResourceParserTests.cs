@@ -351,6 +351,18 @@ int xml myxml 0x7f140000
 			}
 		}
 
+		bool ExecuteWithTiming (GenerateResourceDesigner task)
+		{
+			Stopwatch sw = new Stopwatch ();
+			sw.Start ();
+			try {
+				return task.Execute ();
+			} finally {
+				sw.Stop ();
+				TestContext.Out.WriteLine ($"ElapsedTime: {sw.ElapsedMilliseconds} ms");
+			}
+		}
+
 		[Test]
 		public void GenerateDesignerFileWithÜmläüts ()
 		{
@@ -376,7 +388,7 @@ int xml myxml 0x7f140000
 			};
 			task.IsApplication = true;
 			task.JavaPlatformJarPath = Path.Combine (AndroidSdkDirectory, "platforms", "android-27", "android.jar");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			Assert.IsTrue (File.Exists (task.NetResgenOutputFile), $"{task.NetResgenOutputFile} should have been created.");
 			var expected = Path.Combine (Root, "Expected", "GenerateDesignerFileExpected.cs");
 			CompareFilesIgnoreRuntimeInfoString (task.NetResgenOutputFile, expected);
@@ -417,7 +429,7 @@ int xml myxml 0x7f140000
 					new TaskItem (Path.Combine (Root, libraryPath, "bin", "Debug", "Library.dll"))
 				};
 			}
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			Assert.IsTrue (File.Exists (task.NetResgenOutputFile), $"{task.NetResgenOutputFile} should have been created.");
 			var expected = Path.Combine (Root, "Expected", withLibraryReference ? "GenerateDesignerFileWithLibraryReferenceExpected.cs" : "GenerateDesignerFileExpected.cs");
 			CompareFilesIgnoreRuntimeInfoString (task.NetResgenOutputFile, expected);
@@ -453,14 +465,14 @@ int xml myxml 0x7f140000
 			File.WriteAllText (task.ResourceFlagFile, string.Empty);
 			task.IsApplication = true;
 			task.JavaPlatformJarPath = Path.Combine (AndroidSdkDirectory, "platforms", "android-27", "android.jar");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			Assert.IsTrue (File.Exists (task.NetResgenOutputFile), $"{task.NetResgenOutputFile} should have been created.");
 			var expected = Path.Combine (Root, "Expected", "GenerateDesignerFileExpected.cs");
 			CompareFilesIgnoreRuntimeInfoString (task.NetResgenOutputFile, expected);
 			// Update the id, and force the managed parser to re-parse the output
 			File.WriteAllText (Path.Combine (Root, path, "res", "layout", "main.xml"), Main.Replace ("@+id/textview.withperiod", "@+id/textview.withperiod2"));
 			File.SetLastWriteTimeUtc (task.ResourceFlagFile, DateTime.UtcNow);
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			Assert.IsTrue (File.Exists (task.NetResgenOutputFile), $"{task.NetResgenOutputFile} should have been created.");
 			var data = File.ReadAllText (expected);
 			var expectedWithNewId = Path.Combine (Root, path, "GenerateDesignerFileExpectedWithNewId.cs");
@@ -537,7 +549,7 @@ int xml myxml 0x7f140000
 			task.ResourceFlagFile = Path.Combine (Root, path, "AndroidResgen.flag");
 			task.IsApplication = true;
 			task.JavaPlatformJarPath = aapt2Link.JavaPlatformJarPath;
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 
 			File.WriteAllText (task.ResourceFlagFile, string.Empty);
 			File.Delete (Path.Combine (Root, path, "R.txt.bak"));
@@ -546,7 +558,7 @@ int xml myxml 0x7f140000
 			task.UseManagedResourceGenerator = true;
 			task.DesignTimeBuild = true;
 			task.NetResgenOutputFile = Path.Combine (Root, path, "Resource.designer.managed.cs");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			string aapt2Designer = Path.Combine (Root, path, "Resource.designer.aapt2.cs");
 			string managedDesigner = Path.Combine (Root, path, "Resource.designer.managed.cs");
 			CompareFilesIgnoreRuntimeInfoString (managedDesigner, aapt2Designer);
@@ -616,7 +628,7 @@ int xml myxml 0x7f140000
 			task.UseManagedResourceGenerator = true;
 			task.DesignTimeBuild = true;
 			task.NetResgenOutputFile = Path.Combine (Root, path, "Resource.designer.managedrtxt.cs");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 
 			string managedDesignerRtxt = Path.Combine (Root, path, "Resource.designer.managedrtxt.cs");
 			CompareFilesIgnoreRuntimeInfoString (managedDesignerRtxt, aaptDesigner);
@@ -628,7 +640,7 @@ int xml myxml 0x7f140000
 			task.UseManagedResourceGenerator = true;
 			task.DesignTimeBuild = true;
 			task.NetResgenOutputFile = Path.Combine (Root, path, "Resource.designer.managed.cs");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			string managedDesigner = Path.Combine (Root, path, "Resource.designer.managed.cs");
 
 			var managedDesignerText = File.ReadAllText (managedDesigner);
@@ -735,7 +747,7 @@ int styleable ElevenAttributes_attr10 10";
 			task.Resources = new TaskItem [] {};
 			task.IsApplication = true;
 			task.JavaPlatformJarPath = Path.Combine (AndroidSdkDirectory, "platforms", "android-27", "android.jar");
-			Assert.IsTrue (task.Execute (), "Task should have executed successfully.");
+			Assert.IsTrue (ExecuteWithTiming (task), "Task should have executed successfully.");
 			Assert.IsTrue (File.Exists (task.NetResgenOutputFile), $"{task.NetResgenOutputFile} should have been created.");
 			var expected = Path.Combine (Root, "Expected", "GenerateDesignerFileWithElevenStyleableAttributesExpected.cs");
 			CompareFilesIgnoreRuntimeInfoString (task.NetResgenOutputFile, expected);

@@ -24,12 +24,25 @@ namespace Xamarin.Android.Tasks
 			}
 		}
 
+		class CodeTypeDeclarationComparer : IComparer<CodeTypeDeclaration>
+		{
+			StringComparison comparer;
+			public CodeTypeDeclarationComparer(StringComparison comparision = StringComparison.OrdinalIgnoreCase)
+			{
+				comparer = comparision;
+			}
+			public int Compare (CodeTypeDeclaration x, CodeTypeDeclaration y)
+			{
+				return string.Compare (x.Name, y.Name, comparer);
+			}
+		}
+
 		CodeTypeDeclaration resources;
-		CodeTypeDeclaration layout, ids, drawable, strings, colors, dimension, raw, animator, animation, attrib, boolean, font, ints, interpolators, menu, mipmaps, plurals, styleable, style, arrays, xml, transition;
+		CodeTypeDeclarationCached layout, ids, drawable, strings, colors, dimension, raw, animator, animation, attrib, boolean, font, ints, interpolators, menu, mipmaps, plurals, styleable, style, arrays, xml, transition;
 		Dictionary<string, string> map;
 		bool app;
-		SortedDictionary<string, CodeTypeDeclaration> custom_types = new SortedDictionary<string, CodeTypeDeclaration> ();
-		List<CodeTypeDeclaration> declarationIds = new List<CodeTypeDeclaration> ();
+		SortedDictionary<string, CodeTypeDeclarationCached> custom_types = new SortedDictionary<string, CodeTypeDeclarationCached> ();
+		SortedSet<CodeTypeDeclarationCached> declarationIds = new SortedSet<CodeTypeDeclarationCached> (new CodeTypeDeclarationComparer ());
 		List<CodeTypeDeclaration> typeIds = new List<CodeTypeDeclaration> ();
 		Dictionary<CodeMemberField, CodeMemberField []> arrayMapping = new Dictionary<CodeMemberField, CodeMemberField []> ();
 		const string itemPackageId = "0x7f";
@@ -172,9 +185,9 @@ namespace Xamarin.Android.Tasks
 			declarationIds.Add (style);
 			declarationIds.Add (styleable);
 
-			declarationIds.Sort ((a, b) => {
-				return string.Compare (a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-			});
+			// declarationIds.Sort ((a, b) => {
+			// 	return string.Compare (a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+			// });
 
 			foreach (var codeDeclaration in declarationIds) {
 				int itemid = 0;
@@ -183,7 +196,7 @@ namespace Xamarin.Android.Tasks
 				// We have to get the members in a different store order here becuase
 				// aapt2 generates the ids based on an `Ordinal` order, but the
 				// field output is in an `OrdinalIgnoreCase`.
-				foreach (var fieldDeclaration in SortedMembers(codeDeclaration, StringComparer.Ordinal)) {
+				foreach (var fieldDeclaration in codeDeclaration.SortedMembers) {
 					CodeMemberField field = fieldDeclaration as CodeMemberField;
 					if (field == null) {
 						continue;
@@ -381,7 +394,7 @@ namespace Xamarin.Android.Tasks
 					break;
 				// for custom views
 				default:
-					CodeTypeDeclaration customClass;
+					CodeTypeDeclarationCached customClass;
 					if (!custom_types.TryGetValue (items [1], out customClass)) {
 							customClass = CreateClass (items [1]);
 							custom_types.Add (items [1], customClass);
@@ -435,9 +448,9 @@ namespace Xamarin.Android.Tasks
 			return decl;
 		}
 
-		CodeTypeDeclaration CreateClass (string type)
+		CodeTypeDeclarationCached CreateClass (string type)
 		{
-			var t = new CodeTypeDeclaration (ResourceParser.GetNestedTypeName (type)) {
+			var t = new CodeTypeDeclarationCached (ResourceParser.GetNestedTypeName (type)) {
 				IsPartial = true,
 				TypeAttributes = TypeAttributes.Public,
 			};
@@ -447,20 +460,19 @@ namespace Xamarin.Android.Tasks
 			return t;
 		}
 
-		void CreateField (CodeTypeDeclaration parentType, string name, Type type)
+		void CreateField (CodeTypeDeclarationCached parentType, string name, Type type)
 		{
 			var f = new CodeMemberField (type, name) {
 				// pity I can't make the member readonly...
 				Attributes = app ? MemberAttributes.Const | MemberAttributes.Public : MemberAttributes.Static | MemberAttributes.Public,
 			};
-			parentType.Members.Add (f);
+			parentType.AddMember (f);
 		}
 
-		CodeMemberField CreateIntField (CodeTypeDeclaration parentType, string name, int value = -1)
+		CodeMemberField CreateIntField (CodeTypeDeclarationCached parentType, string name, int value = -1)
 		{
 			string mappedName = GetResourceName (parentType.Name, name, map);
-			CodeMemberField f = (CodeMemberField)parentType.Members.OfType<CodeTypeMember> ().FirstOrDefault (x => string.Compare (x.Name, mappedName, StringComparison.Ordinal) == 0);
-			if (f != null)
+			if (parentType.TryGetMember (mappedName, out CodeMemberField f))
 				return f;
 			f = new CodeMemberField (typeof (int), mappedName) {
 				// pity I can't make the member readonly...
@@ -472,15 +484,14 @@ namespace Xamarin.Android.Tasks
 				string valueName = parentType.Name == "Styleable" ? value.ToString () : $"0x{value.ToString ("X")}";
 				f.Comments.Add (new CodeCommentStatement ($"aapt resource value: {valueName}"));
 			}
-			parentType.Members.Add (f);
+			parentType.AddMember (f);
 			return f;
 		}
 
-		CodeMemberField CreateIntArrayField (CodeTypeDeclaration parentType, string name, int count, params int[] values)
+		CodeMemberField CreateIntArrayField (CodeTypeDeclarationCached parentType, string name, int count, params int[] values)
 		{
 			string mappedName = GetResourceName (parentType.Name, name, map);
-			CodeMemberField f = (CodeMemberField)parentType.Members.OfType<CodeTypeMember> ().FirstOrDefault (x => string.Compare (x.Name, mappedName, StringComparison.Ordinal) == 0);
-			if (f != null)
+			if (parentType.TryGetMember (mappedName, out CodeMemberField f))
 				return f;
 			f = new CodeMemberField (typeof (int []), name) {
 				// pity I can't make the member readonly...
@@ -502,7 +513,7 @@ namespace Xamarin.Android.Tasks
 			}
 			if (values.Length > 0)
 				f.Comments.Add (new CodeCommentStatement ($"aapt resource value: {{ {sb} }}"));
-			parentType.Members.Add (f);
+			parentType.AddMember (f);
 			return f;
 		}
 
@@ -664,7 +675,7 @@ namespace Xamarin.Android.Tasks
 					if (reader.IsStartElement ()) {
 						var elementName = reader.Name;
 						if (reader.HasAttributes) {
-							CodeTypeDeclaration customClass = null;
+							CodeTypeDeclarationCached customClass = null;
 							string name = null;
 							string type = null;
 							string id = null;
@@ -710,6 +721,31 @@ namespace Xamarin.Android.Tasks
 					}
 				}
 			}
+		}
+	}
+
+	public class CodeTypeDeclarationCached : CodeTypeDeclaration {
+		SortedDictionary<string, CodeMemberField> memberLookup = new SortedDictionary<string, CodeMemberField> (StringComparer.Ordinal);
+
+
+		public CodeTypeDeclarationCached(string name) : base(name)
+		{
+
+		}
+
+		public bool TryGetMember (string name, out CodeMemberField field)
+		{
+			return memberLookup.TryGetValue (name, out field);
+		}
+
+		public void AddMember (CodeMemberField field)
+		{
+			this.Members.Add (field);
+			memberLookup.Add (field.Name, field);
+		}
+
+		public IEnumerable<CodeMemberField> SortedMembers {
+			get { return memberLookup.Values; }
 		}
 	}
 }
