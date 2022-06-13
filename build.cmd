@@ -20,6 +20,8 @@ IF ERRORLEVEL 1 CALL :DEFAULT_CASE
 :Pack_CASE
     dotnet-local.cmd build  Xamarin.Android.sln -t:PackDotNet -nr:false
     GOTO END_CASE
+:Installers_CASE
+    GOTO END_CASE
 :DEFAULT_CASE
     dotnet build Xamarin.Android.sln -t:Prepare -nr:false
     dotnet-local.cmd build Xamarin.Android.sln -nr:false
