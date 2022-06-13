@@ -75,7 +75,7 @@ namespace Xamarin.Android.BuildTools.PrepTasks
 				//     HEAD -> bundle-ndk16-fix, origin/pr/1105
 				//
 				branch = branchFull.Substring (8);
-			} else if (String.Compare ("HEAD", branchFull, StringComparison.Ordinal) == 0) {
+			} else if (String.Compare ("HEAD", branchFull, StringComparison.Ordinal) == 0 || branchFull.StartsWith ("grafted", StringComparison.Ordinal)) {
 				Log.LogMessage (MessageImportance.Low, "  Detached HEAD, no branch information");
 				// Detached HEAD without branch information
 				if (isSubmodule) {
