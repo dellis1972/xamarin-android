@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ -z $1 ]; then
-    make prepare && make && make pack-dotnet
+    make prepare && make jenkins && make pack-dotnet
 else
     case $1 in
         Prepare)
@@ -10,7 +10,7 @@ else
             make prepare-external-git-dependencies
         ;;
         Build)
-            make
+            make jenkins
         ;;
         Pack)
             make pack-dotnet
@@ -19,7 +19,7 @@ else
             make create-installers
         ;;
         Everything)
-            make prepare && make && make pack-dotnet
+            make prepare && make jenkins && make pack-dotnet
         ;;
     esac
 fi

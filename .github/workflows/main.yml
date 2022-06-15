@@ -98,8 +98,15 @@ jobs:
             7.0.x
           include-prerelease: true
 
+      - name: Prepare
+        run: ./build.sh Prepare
+        env:
+          CONFIGURATION: Release
+          PREPARE_CI: 1
+          PREPARE_AUTOPROVISION: 1
+
       - name: Build
-        run: ./build.sh
+        run: ./build.sh Build
         env:
           CONFIGURATION: Release
           PREPARE_CI: 1
