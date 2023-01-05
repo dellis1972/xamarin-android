@@ -22,11 +22,11 @@ namespace Xamarin.Android.Tasks
 		public static Aapt2Daemon GetInstance (IBuildEngine4 engine, string aapt2, int numberOfInstances, int initalNumberOfDaemons, bool registerInDomain = false)
 		{
 			var area = registerInDomain ? RegisteredTaskObjectLifetime.AppDomain : RegisteredTaskObjectLifetime.Build;
-			var daemon = engine.GetRegisteredTaskObjectAssemblyLocal<Aapt2Daemon> (RegisterTaskObjectKey, area);
+			var daemon = engine.GetRegisteredTaskObjectAssemblyLocal<Aapt2Daemon> (RegisterTaskObjectKey, area, projectSpecific: false);
 			if (daemon == null)
 			{
 				daemon = new Aapt2Daemon (aapt2, numberOfInstances, initalNumberOfDaemons);
-				engine.RegisterTaskObjectAssemblyLocal (RegisterTaskObjectKey, daemon, area, allowEarlyCollection: false);
+				engine.RegisterTaskObjectAssemblyLocal (RegisterTaskObjectKey, daemon, area, allowEarlyCollection: false, projectSpecific: false);
 			}
 			return daemon;
 		}
@@ -167,12 +167,12 @@ namespace Xamarin.Android.Tasks
 			return false;
 		}
 
+		static readonly PropertyInfo runtimePropInfo = typeof(ProcessStartInfo).GetRuntimeProperty ("StandardInputEncoding");
+		static readonly PropertyInfo propInfo = typeof(ProcessStartInfo).GetProperty ("StandardInputEncoding", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
 		private bool SetProcessInputEncoding (ProcessStartInfo info, Encoding encoding)
 		{
-			Type type = info.GetType ();
-			PropertyInfo prop = type.GetRuntimeProperty ("StandardInputEncoding");
-			if (prop == null)
-				prop = type.GetProperty ("StandardInputEncoding", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+			var prop = runtimePropInfo ?? propInfo;
 			if(prop?.CanWrite ?? false) {
 				prop.SetValue (info, encoding, null);
 				return true;
