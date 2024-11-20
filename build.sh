@@ -5,23 +5,21 @@ else
     case $1 in
         Prepare)
             make prepare
-            break
         ;;
         PrepareExternal)
             make prepare-external-git-dependencies
-            break
         ;;
         Build)
             make jenkins
-            break
         ;;
         Pack)
             make pack-dotnet
-            break
+        ;;
+        Installers)
+            make create-installers
         ;;
         Everything)
             make prepare && make jenkins && make pack-dotnet
-            break
         ;;
     esac
 fi
