@@ -42,6 +42,8 @@ namespace Xamarin.Android.BuildTools.PrepTasks
 			string endCommit    = string.IsNullOrEmpty (EndCommit)
 				? "HEAD"
 				: EndCommit;
+			if (StartCommit.StartsWith ("^"))
+				return $"log {StartCommit.Trim('^')} --oneline";
 			return $"log {StartCommit}..{endCommit} --oneline";
 		}
 
